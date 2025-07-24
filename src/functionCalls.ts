@@ -1,5 +1,101 @@
 import axios from "axios"
 
+// HL7 utility functions
+export const sendSiuAdtOutbound = async (hl7Message: string, type: string) => {
+    try {
+        const transformedMessage = await transformHL7Message(hl7Message);
+        const startChar = "";
+        const endChar = "\n";
+
+        let endpoint = "";
+        if (type === "SIU") {
+            endpoint = process.env.OUTBOUND_SIU_ENDPOINT!;
+        } else if (type === "ADT") {
+            endpoint = process.env.OUTBOUND_ADT_ENDPOINT!;
+        }
+
+        const finalMessage = startChar + transformedMessage + endChar;
+
+        const response = await axios.post(
+            endpoint,
+            finalMessage, // No MLLP framing
+            {
+                headers: {
+                    "Content-Type": "text/plain", // or even text/hl7
+                },
+            }
+        );
+        console.log("Logger -> sendSiuAdtOutbound -> response:", response)
+
+        return response.data;
+    } catch (error) {
+        console.error("Error sending HL7 message to Mirth:", error);
+        throw error; // Re-throw error to handle it at a higher level if needed
+    }
+};
+
+export const transformHL7Message = async (hl7Message: string) => {
+    // Split the HL7 message into lines
+    let lines = hl7Message.split("\n");
+
+    // Iterate through the lines to find and modify the SCH segment
+    lines = lines.map((line) => {
+        if (line.startsWith("MSH|")) {
+            let fields = line.split("|");
+
+            // Modify the 11th field to include '^^^' if it contains two subfields separated by '^'
+            fields[5] = "303741";
+
+            return fields.join("|");
+        }
+        if (line.startsWith("SCH|")) {
+            // Split the SCH segment into fields using '|'
+            let fields = line.split("|");
+
+            // Modify the 11th field to include '^^^' if it contains two subfields separated by '^'
+            if (fields[11]) {
+                fields[11] = `^^^${fields[11]}`;
+            }
+
+            // Rejoin the fields to reconstruct the modified SCH segment
+            return fields.join("|");
+        }
+        return line; // Leave other lines unchanged
+    });
+
+    // Rejoin the lines to reconstruct the HL7 message
+    return lines.join("\n");
+};
+
+// Function to generate HL7 SIU message for appointment booking
+const generateHL7SIUMessage = (appointmentData: any) => {
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14);
+    const messageControlId = Math.floor(Math.random() * 10000);
+
+    // Format appointment time
+    const appointmentDate = new Date(appointmentData.appointmentTime);
+    const startTime = appointmentDate.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14);
+    const endTime = new Date(appointmentDate.getTime() + (appointmentData.duration * 60000))
+        .toISOString().replace(/[-T:.Z]/g, '').slice(0, 14);
+
+    // Generate patient ID (using first name + random number for demo)
+    const patientId = appointmentData.firstName.toLowerCase() + Math.floor(Math.random() * 1000);
+
+    // Format birth date
+    const birthDate = appointmentData.birthDate.replace(/-/g, '');
+
+    const hl7Message = `MSH|^~\\&||ECW|ECW||${timestamp}||SIU^S12|${messageControlId}|T|2.4
+SCH|${appointmentData.id}|${appointmentData.id}||||||${appointmentData.visitType}|||${startTime}^${endTime}||||||||||||||PEN|||
+PID|1|${patientId}||${patientId}|${appointmentData.lastName}^${appointmentData.firstName}^||${birthDate}|${appointmentData.sex}|||^^^^|0||^|||||||||2||||||||||||||||
+PV1|1||2^Middletown Medical PC||||${appointmentData.providerId}^${appointmentData.provider.split(' ').slice(1).join('^')}||||||||||||${appointmentData.id}||||||||||||||||||||||||${startTime}|
+AIG|||259078^Adult Vaccine Clinic^|||
+AIL|1||2^Middletown Medical PC|
+AIP|1||${appointmentData.providerId}^${appointmentData.provider.split(' ').slice(1).join('^')}|`;
+
+    return hl7Message;
+};
+
 export const FUNCTION_DEFINITIONS = [
     {
         "name": "find_patient",
@@ -117,16 +213,16 @@ export const findPatient = async ({ patient_id, phone, email }: any) => {
         success: true,
         patient: {
             id: patient_id || "CUST0123",
-            name: "John Smith",
+            name: "Gaurav kumar",
             phone: phone || "+15551234567",
-            email: email || "john.smith@email.com",
+            email: email || "gaurav.kumar@email.com",
             dateOfBirth: "1985-06-15",
             gender: "M",
             lastVisit: "2024-01-15"
         },
         message: "Patient found successfully"
     };
-    
+
     // Original API call commented out for mockup
     /*
     try {
@@ -157,22 +253,42 @@ export const findPatient = async ({ patient_id, phone, email }: any) => {
 // };
 export const createAppointment = async ({ patientName, firstName, lastName, birthDate, sex, phoneNumber, appointmentTime }: any) => {
     // Return mockup response for testing
+    const appointmentData = {
+        id: "APT001234",
+        patientName: patientName,
+        firstName: firstName,
+        lastName: lastName,
+        birthDate: birthDate,
+        sex: sex,
+        phoneNumber: phoneNumber,
+        appointmentTime: appointmentTime,
+        provider: "Dr. Sarah Johnson",
+        providerId: "9152",
+        location: "MiddleTown Medicals - Main Office",
+        visitType: "Initial Visit",
+        duration: 15,
+        status: "confirmed"
+    };
+
+    // Generate HL7 SIU message
+    const hl7Message = generateHL7SIUMessage(appointmentData);
+    console.log("Generated HL7 SIU Message:");
+    console.log(hl7Message);
+
+    // For now, just console log the transformed message
+    try {
+        const transformedMessage = await transformHL7Message(hl7Message);
+        console.log("\nTransformed HL7 Message:");
+        console.log(transformedMessage);
+    } catch (error) {
+        console.error("Error transforming HL7 message:", error);
+    }
+
+    await sendSiuAdtOutbound(hl7Message, "SIU");
+
     return {
         success: true,
-        appointment: {
-            id: "APT001234",
-            patientName: patientName,
-            firstName: firstName,
-            lastName: lastName,
-            phoneNumber: phoneNumber,
-            appointmentTime: appointmentTime,
-            provider: "Dr. Sarah Johnson",
-            providerId: "9152",
-            location: "MiddleTown Medicals - Main Office",
-            visitType: "Initial Visit",
-            duration: 15,
-            status: "confirmed"
-        },
+        appointment: appointmentData,
         message: "Appointment successfully booked"
     };
 
@@ -220,14 +336,14 @@ export const checkAvailability = async ({ date }: any) => {
             },
             {
                 time: "09:30",
-                period: "morning", 
+                period: "morning",
                 provider: "Dr. Sarah Johnson",
                 available: true
             },
             {
                 time: "10:00",
                 period: "morning",
-                provider: "Dr. Sarah Johnson", 
+                provider: "Dr. Sarah Johnson",
                 available: true
             },
             {
@@ -255,7 +371,7 @@ export const checkAvailability = async ({ date }: any) => {
                 available: true
             },
             {
-                time: "17:30", 
+                time: "17:30",
                 period: "evening",
                 provider: "Dr. Sarah Johnson",
                 available: true

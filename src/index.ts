@@ -151,7 +151,7 @@ async function connectToAgent() {
             }
           },
 
-          greeting: "Hello! Thank you for calling MiddleTown Medicals. I'm Intelidoc AI, your virtual assistant. I can help you find patient records, check appointment availability, and book medical appointments. How may I assist you today?",
+          greeting: "Hello!. How may I assist you today?",
         }
       });
     });

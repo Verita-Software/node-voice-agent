@@ -6,9 +6,8 @@
     <title>Deepgram Voice Agent</title>
 </head>
 <body>
-    <h1>Deepgram Voice Agent Browser Demo</h1>
-    <p>This is a demo of the Deepgram Voice Agent. It uses the <a href="https://developers.deepgram.com/reference/voice-agent-api/agent">Deepgram Voice Agent API</a>.</p>
-    <p>Please enable your microphone in the browser to start the conversation.</p>
+    <h1>Intelidoc Ai agent</h1>
+    
     <script>
         let socket;
         let mediaStream;
@@ -29,19 +28,13 @@
                 // Get microphone permission with specific constraints
                 const constraints = {
                     audio: {
-                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+                        sampleRate: 16000,
                         channelCount: 1,
-                        sampleRate: 24000,
-                        echoCancellation: true,   // Enable echo cancellation
-                        noiseSuppression: true,   // Enable noise suppression
-                        autoGainControl: true,    // Enable auto gain control
-                        latency: 0,              // Minimize latency
-                        // Advanced constraints for better control
-                        googEchoCancellation: false,
-                        googAutoGainControl: false,
-                        googNoiseSuppression: false,
-                        googHighpassFilter: true
-                    }
+                        volume: 1.0,
+                        echoCancellation: true,
+                        noiseSuppression: false,
+                        latency: 0,
+                        },
                 };
                 mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
