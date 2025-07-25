@@ -144,7 +144,7 @@ export const FUNCTION_DEFINITIONS = [
     },
     {
         "name": "create_appointment",
-        "description": "Schedule a new appointment for a customer. Use this function when:\n- A customer wants to book a new appointment\n- A customer asks to schedule a service\n\nBefore scheduling:\n1. Verify the customer's account exists using find_patient.\n2. Confirm the date, time, and service type with the customer before booking.\n3. Check availability using check_availability.",
+        "description": "Schedule a new appointment. Before calling this function:\n1. Find patient first\n2. Check availability\n3. Collect info ONE piece at a time (don't ask multiple questions)\n4. Only call when you have ALL required information\n\nIf missing info, ask for ONE piece at a time: 'What's your first name?' then wait for response.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -183,15 +183,12 @@ export const FUNCTION_DEFINITIONS = [
     },
     {
         "name": "check_availability",
-        "description": `Check available appointment slots for a date. Use this function when:
-        - A customer wants to know available appointment times 
-        - Before scheduling a new appointment
-        - A customer asks 'When can I come in?' or 'What times are available?'
-        - After getting the results from the Api You have to first ask the custumer abount when you want the slats for morning,afternoon or evening. depending upon what you get in the response
-        - then Tell him only those particular slots that matches it
+        "description": `Check available appointment slots for a date. After getting results:
+        1. Ask: "Morning, afternoon, or evening?"
+        2. Show only 2-3 slots that match their preference
+        3. Keep it conversational: "I have 9 AM or 10:30 AM. Which works?"
         
-        After checking availability, present options to the customer in a natural way, like:
-        'I have openings on [date] at [time] or [date] at [time]. Which works better for you?'`,
+        Don't list all slots - just present relevant options based on their time preference.`,
         "parameters": {
             "type": "object",
             "properties": {
@@ -398,4 +395,14 @@ export const FUNCTION_MAP = {
     "create_appointment": createAppointment,
     "check_availability": checkAvailability,
 }
+
+// const res = transformHL7Message(`MSH|^~\&||ECW|ECW||20250725110201||SIU^S12|2734|T|2.4
+// SCH|3801894|3801894||||||Flu Shot|||20250725004500^20250725010000||||||||||||||PEN|||
+// PID|1|259202|63347523456452584|259202|Test^Avinash123^||20250123|M|||^^^^|0|8458008291|^|||||||||||||||||||||||||
+// PV1|1||2^Middletown Medical PC||||9152^GULATI^RAJAN||||||||||||3801894||||||||||||||||||||||||20250725004500|
+// AIG|||259078^Adult Vaccine Clinic^|||
+// AIL|1||2^Middletown Medical PC|
+// AIP|1||9152^GULATI^RAJAN|`).then((res) => console.log("Logger -> res:", res))
+
+
 
